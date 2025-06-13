@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  webapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flask_job_search
+    ports:
+      - "5001:5000" # Host:Container (using 5001 to avoid conflict if you have 5000 used)
+    volumes:
+      - ./app:/usr/src/app # Mount app directory for live reloading during development
+    environment:
+      - FLASK_ENV=development
+      - FLASK_APP=app.py
+      - MYSQL_HOST=db
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+      - MYSQL_DB=job_platform
+      - OLLAMA_BASE_URL=http://ollama:11434 # Service name 'ollama'
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started # Wait for ollama to start, model pulling is separate
+    restart: unless-stopped
+    networks:
+      - jobnet
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_job_db
+    command: --default-authentication-plugin=mysql_native_password # Important for compatibility 
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: job_platform
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3307:3306" # Host:Container (using 3307 for host)
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # If you have a .sql file to initialize schema/data, uncomment and place it
+      # - ./your_schema_and_data.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u$$MYSQL_USER", "-p$$MYSQL_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jobnet
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama_service
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    tty: true
+    restart: unless-stopped
+    networks:
+      - jobnet
+
+volumes:
+  mysql_data:
+  ollama_data:
+
+networks:
+  jobnet:
+    driver: bridge

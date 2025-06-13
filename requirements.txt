@@ -1,0 +1,5 @@
+Flask
+mysql-connector-python
+python-dotenv
+ollama
+requests # ollama client sometimes needs this indirectly or for other http calls

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Candidate Search</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        form { margin-bottom: 30px; display: flex; }
+        label { display: none; } /* Hidden for simplicity, input has placeholder */
+        input[type="text"] { flex-grow: 1; padding: 12px; margin-right: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        input[type="submit"] { background-color: #5cb85c; color: white; padding: 12px 18px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        input[type="submit"]:hover { background-color: #4cae4c; }
+        .candidate { border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 4px; background-color: #f9f9f9; }
+        .candidate h3 { margin-top: 0; color: #0056b3; }
+        .candidate p { margin-bottom: 8px; line-height: 1.6; }
+        .skills-db { font-style: italic; color: #555; background-color: #e9ecef; padding: 3px 6px; border-radius: 3px; font-size: 0.9em;}
+        .pros-cons { margin-top: 12px; padding-left: 10px; border-left: 3px solid #5cb85c; }
+        .pros-cons h4 { margin-bottom: 5px; font-size: 1.1em; color: #333;}
+        .pros ul, .cons ul { list-style-type: none; padding-left: 0; margin-left: 0px; }
+        .pros li::before { content: "👍"; margin-right: 8px; }
+        .cons li::before { content: "👎"; margin-right: 8px; }
+        .pros li { color: #28a745; margin-bottom: 4px;}
+        .cons li { color: #dc3545; margin-bottom: 4px;}
+        .error { color: red; font-weight: bold; text-align: center; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;}
+        .info { color: #004085; text-align: center; padding: 10px; background-color: #cce5ff; border: 1px solid #b8daff; border-radius: 4px;}
+        .loading { font-style: italic; color: #777; text-align: center; padding: 10px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Search for Job Candidates</h1>
+        <form action="/search" method="post">
+            <label for="query">Describe the skills and qualifications:</label>
+            <input type="text" id="query" name="query" placeholder="e.g., python expert with AWS and Docker" required>
+            <input type="submit" value="Search">
+        </form>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        {% if query and candidates is defined %}
+            <h2 style="text-align: center;">Results for "{{ query }}"</h2>
+            {% if candidates %}
+                {% for candidate in candidates %}
+                <div class="candidate">
+                    <h3>{{ candidate.full_name }}</h3>
+                    <p><strong>Email:</strong> {{ candidate.email }}</p>
+                    <p><strong>Phone:</strong> {{ candidate.phone if candidate.phone else 'N/A' }}</p>
+                    <p><strong>Skills (from DB):</strong> <span class="skills-db">{{ candidate.skills_display if candidate.skills_display else 'N/A' }}</span></p>
+                    
+                    {% if candidate.pros_cons %}
+                    <div class="pros-cons">
+                        <h4>Candidate Analysis:</h4>
+                        {% if candidate.pros_cons.pros and candidate.pros_cons.pros|length > 0 and candidate.pros_cons.pros[0] != "N/A - No candidate document (resume/cover letter) provided" and candidate.pros_cons.pros[0] != "Error parsing analysis from LLM." and candidate.pros_cons.pros[0] != "Error generating analysis via LLM." %}
+                        <div class="pros">
+                            <strong>Pros:</strong>
+                            <ul>
+                                {% for pro in candidate.pros_cons.pros %}
+                                <li>{{ pro }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
+                        {% if candidate.pros_cons.cons and candidate.pros_cons.cons|length > 0 and candidate.pros_cons.cons[0] != "N/A - No candidate document (resume/cover letter) provided" and candidate.pros_cons.cons[0] != "Could not parse LLM's response" and candidate.pros_cons.cons[0] != "Error generating analysis via LLM." %}
+                        <div class="cons">
+                            <strong>Cons / Areas Lacking Info:</strong>
+                            <ul>
+                                {% for con in candidate.pros_cons.cons %}
+                                <li>{{ con }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        {% if (not candidate.pros_cons.pros or candidate.pros_cons.pros|length == 0 or candidate.pros_cons.pros[0] == "N/A - No candidate document (resume/cover letter) provided" or candidate.pros_cons.pros[0] == "Error parsing analysis from LLM." or candidate.pros_cons.pros[0] == "Error generating analysis via LLM.") 
+                           and (not candidate.pros_cons.cons or candidate.pros_cons.cons|length == 0 or "N/A" in candidate.pros_cons.cons[0] or "Error" in candidate.pros_cons.cons[0]) %}
+                            <p><em>No specific pros or cons could be generated based on the available information and query.</em></p>
+                        {% endif %}
+                    </div>
+                    {% elif candidate.analysis_error %}
+                        <p class="error">Could not generate pros/cons: {{ candidate.analysis_error }}</p>
+                    {% else %}
+                        <p class="info"><em>Pros/cons analysis pending or not applicable.</em></p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="info">No candidates found matching your criteria.</p>
+            {% endif %}
+        {% elif query and not candidates and not error %}
+            <!-- This state might be brief or not shown if processing is fast -->
+            <p class="loading">Searching and analyzing candidates...</p>
+        {% endif %}
+    </div>
+</body>
+</html>
